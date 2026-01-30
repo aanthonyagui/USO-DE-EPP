@@ -45,8 +45,8 @@
         }
 
         /* Animaciones SVG Avanzadas */
-        .svg-pulse { animation: pulse 2s infinite alternate; }
-        @keyframes pulse { 0% { opacity: 0.7; } 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(255,255,255,0.8)); } }
+        .svg-pulse { animation: pulse 1.5s infinite alternate; }
+        @keyframes pulse { 0% { opacity: 0.6; } 100% { opacity: 1; filter: drop-shadow(0 0 5px white); } }
 
         .svg-float { animation: float 3s ease-in-out infinite; }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
@@ -90,7 +90,7 @@
         </div>
 
         <div class="hidden md:block mt-auto text-[10px] text-slate-500 font-medium text-center w-full">
-            v9.0 - Ultra Realistic SVG
+            v9.2 - Full Visibility
         </div>
     </aside>
 
@@ -113,11 +113,13 @@
                 </div>
             </div>
 
-            <div class="flex flex-col lg:flex-row gap-6 h-full pb-20">
+            <!-- CONTENEDOR PRINCIPAL: Ajustado para scroll en móviles (h-auto en móvil, h-full en desktop) -->
+            <div class="flex flex-col lg:flex-row gap-6 h-auto lg:h-full pb-32 lg:pb-20">
                 
                 <!-- COLUMNA IZQUIERDA: VISUALIZACIÓN -->
-                <div class="w-full lg:w-7/12 flex flex-col gap-4 h-full">
-                    <div class="bg-slate-900 rounded-xl shadow-inner overflow-hidden border border-slate-200 relative w-full h-auto min-h-[350px] flex-1 flex items-center justify-center">
+                <div class="w-full lg:w-7/12 flex flex-col gap-4 h-auto lg:h-full">
+                    <!-- FIX: aspect-video asegura proporción 16:9 y evita cortes -->
+                    <div class="bg-slate-900 rounded-xl shadow-inner overflow-hidden border border-slate-200 relative w-full aspect-video lg:h-auto lg:aspect-auto lg:flex-1 flex items-center justify-center">
                         <div id="svg-container" class="w-full h-full"></div>
                     </div>
 
@@ -132,7 +134,7 @@
                 </div>
 
                 <!-- COLUMNA DERECHA: SELECCIÓN -->
-                <div class="w-full lg:w-5/12 flex flex-col h-full bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="w-full lg:w-5/12 flex flex-col h-auto lg:h-full bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-black text-slate-800 text-lg flex items-center gap-2">
                             <i data-lucide="hard-hat" class="w-5 h-5 text-slate-400"></i>
@@ -148,10 +150,10 @@
                         <!-- Items JS -->
                     </div>
 
-                    <div class="mt-auto pt-4">
-                        <button onclick="checkAnswer()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base py-3 px-6 rounded-lg shadow-lg shadow-blue-200 transform active:scale-[0.98] transition-all flex justify-center items-center gap-2 group">
-                            <span>CONFIRMAR EQUIPO</span>
-                            <i data-lucide="chevron-right" class="group-hover:translate-x-1 transition-transform"></i>
+                    <div class="mt-6 lg:mt-auto pt-4">
+                        <button onclick="checkAnswer()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base py-4 px-6 rounded-lg shadow-lg shadow-blue-200 transform active:scale-[0.98] transition-all flex justify-center items-center gap-2 group">
+                            <span>CONFIRMAR EPP</span>
+                            <i data-lucide="check-circle-2" class="group-hover:scale-110 transition-transform"></i>
                         </button>
                     </div>
                 </div>
@@ -223,7 +225,8 @@
                 pants: '#1e293b'
             };
 
-            const header = `<svg viewBox="0 0 800 450" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            // FIX: 'meet' asegura que la imagen se vea completa sin cortarse
+            const header = `<svg viewBox="0 0 800 450" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#cbd5e1"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/></linearGradient>
                     <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ade80"/><stop offset="50%" stop-color="#16a34a"/><stop offset="100%" stop-color="#14532d"/></linearGradient>
