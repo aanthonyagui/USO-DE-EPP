@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador SST: Planta de Beneficio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Iconos Lucide -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .epp-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid #e2e8f0;
+        }
+
+        .epp-card:active {
+            transform: scale(0.95);
+        }
+
+        .epp-card.selected {
+            border-color: #2563eb;
+            background-color: #eff6ff;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Animaciones */
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        /* Animaciones SVG Avanzadas */
+        .svg-pulse { animation: pulse 2s infinite alternate; }
+        @keyframes pulse { 0% { opacity: 0.7; } 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(255,255,255,0.8)); } }
+
+        .svg-float { animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+        .svg-flow { stroke-dasharray: 10; animation: flow 1s linear infinite; }
+        @keyframes flow { to { stroke-dashoffset: -20; } }
+
+        .svg-spin-slow { animation: spin 8s linear infinite; transform-origin: center; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        .svg-spark { animation: spark 0.1s infinite; transform-origin: center; }
+        @keyframes spark { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0; transform: scale(1.5); } 100% { opacity: 1; transform: scale(0.8); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden bg-slate-50 text-slate-800">
+
+    <!-- BARRA LATERAL -->
+    <aside class="w-full md:w-64 bg-slate-900 text-white p-5 flex md:flex-col justify-between items-center md:items-start shrink-0 z-20 shadow-2xl border-r border-slate-800">
+        <div class="w-full">
+            <h1 class="text-xl font-black text-yellow-400 flex items-center gap-2 tracking-tighter uppercase">
+                <i data-lucide="factory" class="w-6 h-6"></i>
+                SST
+            </h1>
+            <div class="h-1 w-16 bg-yellow-500 mt-2 mb-1 rounded-full"></div>
+            <p class="text-xs text-slate-400 font-medium">Planta de Beneficio</p>
+        </div>
+        
+        <div class="flex md:flex-col gap-3 md:gap-4 md:mt-8 items-center md:items-start md:w-full w-full">
+            <div class="bg-slate-800 p-3 rounded-lg w-full border-l-4 border-emerald-500 shadow-lg">
+                <span class="text-[10px] text-emerald-400 uppercase font-bold tracking-widest flex items-center gap-1">
+                    <i data-lucide="shield-check" class="w-3 h-3"></i> Vidas Salvadas
+                </span>
+                <div class="text-2xl font-black mt-1" id="score-safe">0</div>
+            </div>
+            <div class="bg-slate-800 p-3 rounded-lg w-full border-l-4 border-rose-500 shadow-lg">
+                <span class="text-[10px] text-rose-400 uppercase font-bold tracking-widest flex items-center gap-1">
+                    <i data-lucide="alert-octagon" class="w-3 h-3"></i> Accidentes
+                </span>
+                <div class="text-2xl font-black mt-1" id="score-fail">0</div>
+            </div>
+        </div>
+
+        <div class="hidden md:block mt-auto text-[10px] text-slate-500 font-medium text-center w-full">
+            v9.0 - Ultra Realistic SVG
+        </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 relative bg-slate-100">
+        <div class="max-w-6xl mx-auto h-full flex flex-col gap-4">
+
+            <!-- CABECERA -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-black text-slate-800 tracking-tight leading-none" id="scenario-title">...</h2>
+                    <p class="text-sm text-slate-600 font-medium mt-1 uppercase tracking-wide flex items-center gap-1">
+                        <i data-lucide="map-pin" class="w-3 h-3"></i>
+                        <span id="scenario-subtitle">...</span>
+                    </p>
+                </div>
+                <!-- Nivel Estilizado -->
+                <div class="bg-blue-50 text-blue-700 px-4 py-2 rounded-lg border border-blue-100 shadow-sm flex items-center gap-2">
+                    <span class="text-2xl font-black tracking-tighter" id="level-indicator">1 / 7</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-6 h-full pb-20">
+                
+                <!-- COLUMNA IZQUIERDA: VISUALIZACIÓN -->
+                <div class="w-full lg:w-7/12 flex flex-col gap-4 h-full">
+                    <div class="bg-slate-900 rounded-xl shadow-inner overflow-hidden border border-slate-200 relative w-full h-auto min-h-[350px] flex-1 flex items-center justify-center">
+                        <div id="svg-container" class="w-full h-full"></div>
+                    </div>
+
+                    <!-- DESCRIPCIÓN DE LA TAREA -->
+                    <div class="bg-white border-l-4 border-blue-600 p-4 rounded-r-xl shadow-sm">
+                        <div class="flex items-center gap-2 mb-1">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 text-blue-600"></i>
+                            <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wide">Descripción de la Tarea</h3>
+                        </div>
+                        <p class="text-sm text-slate-600 leading-relaxed font-medium" id="scenario-desc">...</p>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DERECHA: SELECCIÓN -->
+                <div class="w-full lg:w-5/12 flex flex-col h-full bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-black text-slate-800 text-lg flex items-center gap-2">
+                            <i data-lucide="hard-hat" class="w-5 h-5 text-slate-400"></i>
+                            Selecciona EPP
+                        </h3>
+                        <button onclick="resetSelection()" class="text-[10px] font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors uppercase tracking-wide border border-slate-200">
+                            Limpiar
+                        </button>
+                    </div>
+
+                    <!-- Grid de EPP -->
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2" id="epp-grid">
+                        <!-- Items JS -->
+                    </div>
+
+                    <div class="mt-auto pt-4">
+                        <button onclick="checkAnswer()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-base py-3 px-6 rounded-lg shadow-lg shadow-blue-200 transform active:scale-[0.98] transition-all flex justify-center items-center gap-2 group">
+                            <span>CONFIRMAR EQUIPO</span>
+                            <i data-lucide="chevron-right" class="group-hover:translate-x-1 transition-transform"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="result-modal" class="fixed inset-0 bg-slate-900/90 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-all duration-300">
+        <div class="bg-white rounded-2xl max-w-md w-full p-0 text-center shadow-2xl relative border border-slate-200 scale-100 max-h-[90vh] overflow-y-auto flex flex-col">
+            <div id="modal-header" class="p-6 pb-4 bg-gray-50 border-b border-gray-100 shrink-0">
+                <h2 id="modal-title" class="text-xl font-black text-slate-800 uppercase tracking-tight">RESULTADO</h2>
+            </div>
+            <div class="p-6 pt-4 flex-1 text-left">
+                <p id="modal-message" class="text-base text-slate-600 font-medium mb-6 leading-relaxed text-center">...</p>
+                
+                <div id="modal-feedback" class="text-left bg-red-50 border border-red-100 rounded-lg p-3 mb-4 hidden">
+                    <h4 class="text-red-800 font-bold text-xs uppercase mb-2 flex items-center gap-1">
+                        <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                        Causa Raíz / EPP Faltante:
+                    </h4>
+                    <ul id="modal-feedback-list" class="text-xs text-red-700 space-y-2 list-disc pl-4 leading-snug"></ul>
+                </div>
+
+                <!-- Visual Éxito -->
+                <div id="modal-visual" class="h-32 w-full bg-emerald-50 rounded-lg mb-6 overflow-hidden flex items-center justify-center border border-emerald-100 shrink-0 hidden">
+                    <svg viewBox="0 0 100 100" class="w-20 h-20 text-emerald-500">
+                        <circle cx="50" cy="50" r="45" fill="currentColor" opacity="0.2"/>
+                        <circle cx="50" cy="50" r="35" fill="currentColor"/>
+                        <path d="M30 50 L45 65 L70 35" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <button onclick="nextLevel()" class="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-all text-sm shadow-md mb-1 uppercase tracking-wide text-center">
+                    CONTINUAR
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. INVENTARIO EPP ---
+        const eppInventory = [
+            { id: 'casco', name: 'Casco', img: 'https://laboraprevencion.com/wp-content/uploads/IMG/casco-seguridad.jpg' },
+            { id: 'gafas', name: 'Gafas', img: 'https://www.dateriumsystem.com/appfiles/clientes/3/catalogo/eagle_sctrsg.jpg' },
+            { id: 'guantes', name: 'Guantes', img: 'https://www.contenthubext.kimberly-clark.com/ePIM/ImageStore/public/202532160_h.png' },
+            { id: 'botas', name: 'Botas', img: 'https://www.shutterstock.com/image-photo/yellow-rubber-boots-isolated-on-600nw-94070320.jpg' },
+            { id: 'auditivo', name: 'Auditivo', img: 'https://tse3.mm.bing.net/th/id/OIP.p8vhAgoRSqGpcDX1knHkaQHaHa?w=512&h=512&rs=1&pid=ImgDetMain&o=7&rm=3' },
+            { id: 'respirador', name: 'Respirador', img: 'https://srseguridad.com/wp-content/uploads/2023/02/3M2097.png' },
+            { id: 'arnes', name: 'Arnés', img: 'https://ferreteriavidri.com/images/items/large/96568.jpg' },
+            { id: 'chaleco', name: 'Ropa', img: 'https://www.redoakdirect.com/user/categories/thumbnails/1000px-High-Visibility-Coveralls-Category.jpg' },
+            { id: 'kit', name: 'Kit Derrames', img: 'https://daveco.com.gt/wp-content/uploads/2023/10/SYK201.png' }
+        ];
+
+        // --- 2. MOTOR DE GRÁFICOS SVG ULTRA-REALISTA ---
+        function getScenarioSVG(type) {
+            // Paleta de Colores Industrial
+            const c = {
+                bg: '#f1f5f9',
+                steel: 'url(#gradSteel)',
+                darkSteel: '#334155',
+                rust: '#78350f',
+                pipeGreen: 'url(#gradGreen)',
+                pipeBlue: 'url(#gradBlue)',
+                safetyYellow: '#fbbf24',
+                warningStripe: 'url(#stripe)',
+                skin: '#eab69f', 
+                shirt: '#94a3b8', 
+                pants: '#1e293b'
+            };
+
+            const header = `<svg viewBox="0 0 800 450" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="gradSteel" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#cbd5e1"/><stop offset="50%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/></linearGradient>
+                    <linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ade80"/><stop offset="50%" stop-color="#16a34a"/><stop offset="100%" stop-color="#14532d"/></linearGradient>
+                    <linearGradient id="gradBlue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7dd3fc"/><stop offset="50%" stop-color="#0284c7"/><stop offset="100%" stop-color="#0c4a6e"/></linearGradient>
+                    <linearGradient id="gradLiquid" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/><stop offset="100%" stop-color="#0284c7" stop-opacity="0.95"/></linearGradient>
+                    <radialGradient id="glow"><stop offset="0" stop-color="#fff"/><stop offset="0.3" stop-color="#fbbf24"/><stop offset="1" stop-color="transparent"/></radialGradient>
+                    <pattern id="stripe" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="20" fill="#fbbf24"/><rect x="10" width="10" height="20" fill="#000"/></pattern>
+                    <pattern id="grating" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M0 0 L10 0 M0 0 L0 10" stroke="#64748b" stroke-width="0.5" fill="none"/></pattern>
+                    <filter id="shadow"><feDropShadow dx="2" dy="4" stdDeviation="3" flood-opacity="0.3"/></filter>
+                </defs>
+                <rect width="800" height="450" fill="${c.bg}"/>`;
+            
+            const footer = `</svg>`;
+
+            // Componente: Humano Detallado (Cabeza, Torso, Extremidades)
+            const human = (x, y, scale=1, pose='stand') => {
+                let body = '';
+                
+                if (pose === 'stand') {
+                    // De pie relajado
+                    body = `
+                        <!-- Pierna Izq --> <path d="M-10 60 L-12 130" stroke="${c.pants}" stroke-width="14" stroke-linecap="round"/>
+                        <!-- Pierna Der --> <path d="M10 60 L12 130" stroke="${c.pants}" stroke-width="14" stroke-linecap="round"/>
+                        <!-- Torso --> <path d="M-15 0 L15 0 L12 65 L-12 65 Z" fill="${c.shirt}" stroke="${c.shirt}" stroke-width="1"/>
+                        <!-- Brazo Izq --> <path d="M-15 5 L-25 40 L-20 60" stroke="${c.skin}" stroke-width="10" stroke-linecap="round" fill="none"/>
+                        <!-- Brazo Der --> <path d="M15 5 L25 40 L20 60" stroke="${c.skin}" stroke-width="10" stroke-linecap="round" fill="none"/>
+                        <!-- Cabeza --> <circle cx="0" cy="-20" r="14" fill="${c.skin}"/>
+                    `;
+                } else if (pose === 'bend') {
+                    // Inclinado (Muestreo)
+                    body = `
+                        <!-- Piernas --> <path d="M-5 60 L-15 130 M15 60 L25 130" stroke="${c.pants}" stroke-width="14" stroke-linecap="round"/>
+                        <!-- Torso Inclinado --> <path d="M-10 60 L10 60 L25 10 L5 10 Z" fill="${c.shirt}"/>
+                        <!-- Brazos Estirados --> <path d="M15 15 L40 30" stroke="${c.skin}" stroke-width="10" stroke-linecap="round"/>
+                        <!-- Cabeza --> <circle cx="15" cy="-5" r="14" fill="${c.skin}"/>
+                    `;
+                } else if (pose === 'weld') {
+                    // Soldando (Brazos arriba)
+                    body = `
+                        <path d="M-10 60 L-10 130 M10 60 L10 130" stroke="${c.pants}" stroke-width="14"/>
+                        <path d="M-15 0 L15 0 L12 65 L-12 65 Z" fill="${c.shirt}"/>
+                        <path d="M-15 5 L0 30 L15 25" stroke="${c.skin}" stroke-width="10" fill="none" stroke-linecap="round"/> <!-- Brazo sosteniendo -->
+                        <path d="M-12 -35 H12 V-10 H-12 Z" fill="#333"/> <!-- Careta -->
+                    `;
+                } else if (pose === 'climb') {
+                    // Escalando
+                    body = `
+                        <path d="M-10 60 L-10 100 L-20 130 M10 60 L10 90 L20 120" stroke="${c.pants}" stroke-width="14" fill="none"/>
+                        <path d="M-15 0 L15 0 L12 65 L-12 65 Z" fill="${c.shirt}"/>
+                        <path d="M-15 5 L-25 -20 M15 5 L25 -10" stroke="${c.skin}" stroke-width="10" stroke-linecap="round"/>
+                        <circle cx="0" cy="-20" r="14" fill="${c.skin}"/>
+                    `;
+                }
+
+                return `<g transform="translate(${x},${y}) scale(${scale})" filter="url(#shadow)">${body}</g>`;
+            };
+
+            let svg = '';
+
+            if (type === 'flotacion') {
+                svg = `
+                    <!-- Pasarela Industrial -->
+                    <rect x="0" y="320" width="800" height="130" fill="url(#grating)"/>
+                    <rect x="0" y="320" width="800" height="10" fill="${c.darkSteel}"/>
+                    
+                    <!-- Tanques de Flotación -->
+                    <g transform="translate(100, 120)">
+                        <path d="M0 0 H200 V200 H0 Z" fill="${c.steel}" stroke="${c.darkSteel}" stroke-width="2"/>
+                        <rect x="0" y="-20" width="200" height="20" fill="${c.darkSteel}"/>
+                        <!-- Motor Agitador -->
+                        <rect x="80" y="-60" width="40" height="40" fill="${c.darkSteel}"/>
+                        <rect x="95" y="-20" width="10" height="20" fill="#64748b"/>
+                        <!-- Liquido -->
+                        <rect x="10" y="20" width="180" height="160" fill="url(#gradLiquid)" opacity="0.9"/>
+                        <!-- Burbujas -->
+                        <g class="svg-float">
+                            <circle cx="50" cy="100" r="8" fill="white" opacity="0.4"/>
+                            <circle cx="150" cy="140" r="5" fill="white" opacity="0.4"/>
+                        </g>
+                    </g>
+
+                    <g transform="translate(350, 120)">
+                        <path d="M0 0 H200 V200 H0 Z" fill="${c.steel}" stroke="${c.darkSteel}" stroke-width="2"/>
+                        <rect x="0" y="-20" width="200" height="20" fill="${c.darkSteel}"/>
+                        <rect x="80" y="-60" width="40" height="40" fill="${c.darkSteel}"/>
+                    </g>
+
+                    <!-- Baranda -->
+                    <line x1="0" y1="400" x2="800" y2="400" stroke="${c.safetyYellow}" stroke-width="5"/>
+                    <line x1="0" y1="350" x2="800" y2="350" stroke="${c.safetyYellow}" stroke-width="5"/>
+
+                    <!-- Trabajador Muestreando -->
+                    <g transform="translate(600, 280)">
+                        ${human(0, 0, 1.8, 'bend')}
+                        <line x1="30" y1="20" x2="-20" y2="50" stroke="#333" stroke-width="4"/> <!-- Vara -->
+                    </g>
+                `;
+            } else if (type === 'chancado') {
+                svg = `
+                    <rect width="800" height="450" fill="#cbd5e1"/>
+                    <!-- Estructura Chancadora -->
+                    <path d="M200 450 L280 100 L520 100 L600 450 Z" fill="${c.steel}"/>
+                    <rect x="280" y="80" width="240" height="20" fill="${c.darkSteel}"/>
+                    
+                    <!-- Boca de Alimentación -->
+                    <ellipse cx="400" cy="100" rx="120" ry="30" fill="#1e293b"/>
+                    
+                    <!-- Rocas -->
+                    <g transform="translate(400, 50)">
+                        <path d="M-20 -20 L20 -10 L0 20 Z" fill="#57534e" class="svg-float"/>
+                        <circle cx="30" cy="0" r="15" fill="#57534e" class="svg-float" style="animation-delay:0.5s"/>
+                    </g>
+
+                    <!-- Polvo -->
+                    <circle cx="400" cy="200" r="180" fill="#e2e8f0" opacity="0.3" filter="blur(20px)" class="svg-pulse"/>
+
+                    <!-- Pasarela y Baranda -->
+                    <rect x="0" y="350" width="800" height="100" fill="url(#grating)"/>
+                    <line x1="0" y1="350" x2="800" y2="350" stroke="${c.safetyYellow}" stroke-width="5"/>
+
+                    ${human(150, 250, 1.8, 'stand')}
+                `;
+            } else if (type === 'altura') {
+                svg = `
+                    <rect width="800" height="450" fill="#e0f2fe"/>
+                    <!-- Silo/Estructura -->
+                    <rect x="250" y="0" width="300" height="450" fill="${c.steel}"/>
+                    
+                    <!-- Escalera con Jaula -->
+                    <g transform="translate(380, 0)">
+                        <line x1="0" y1="0" x2="0" y2="450" stroke="#334155" stroke-width="5"/>
+                        <line x1="40" y1="0" x2="40" y2="450" stroke="#334155" stroke-width="5"/>
+                        <!-- Peldaños -->
+                        <path d="M0 50 H40 M0 100 H40 M0 150 H40 M0 200 H40 M0 250 H40 M0 300 H40 M0 350 H40" stroke="#334155" stroke-width="3"/>
+                        <!-- Aros de Jaula -->
+                        <path d="M-10 50 Q20 20 50 50" stroke="#334155" stroke-width="2" fill="none"/>
+                        <path d="M-10 150 Q20 120 50 150" stroke="#334155" stroke-width="2" fill="none"/>
+                        <path d="M-10 250 Q20 220 50 250" stroke="#334155" stroke-width="2" fill="none"/>
+                    </g>
+
+                    ${human(400, 180, 1.5, 'climb')}
+                    
+                    <!-- Luminaria a reparar -->
+                    <g transform="translate(500, 100)">
+                        <path d="M0 0 L20 0 L10 20 Z" fill="#fbbf24"/>
+                        <line x1="10" y1="0" x2="10" y2="-20" stroke="#333" stroke-width="2"/>
+                        <text x="30" y="10" font-weight="bold" fill="#333">6m</text>
+                    </g>
+                `;
+            } else if (type === 'reactivos') {
+                svg = `
+                    <rect width="800" height="450" fill="#ecfeff"/>
+                    <!-- Tanque Quimico -->
+                    <rect x="200" y="50" width="200" height="350" fill="${c.pipeGreen}" rx="15" filter="url(#shadow)"/>
+                    <rect x="200" y="50" width="200" height="40" fill="#14532d" rx="15"/>
+                    
+                    <!-- Tubería de Salida -->
+                    <path d="M400 300 H500" stroke="#16a34a" stroke-width="20"/>
+                    <circle cx="450" cy="300" r="15" fill="#333"/> <!-- Valvula -->
+                    <rect x="445" y="270" width="10" height="30" fill="#ef4444"/> <!-- Manija -->
+
+                    <!-- Rombo NFPA -->
+                    <g transform="translate(300, 150) scale(0.8)">
+                        <rect x="0" y="0" width="60" height="60" fill="white" transform="rotate(45 30 30)"/>
+                        <rect x="5" y="5" width="50" height="50" fill="#ef4444" transform="rotate(45 30 30)"/>
+                        <text x="30" y="35" text-anchor="middle" font-weight="bold" fill="white">4</text>
+                    </g>
+
+                    <!-- Gas -->
+                    <g class="svg-flow">
+                        <path d="M460 300 Q500 250 500 350" stroke="#86efac" stroke-width="5" fill="none" opacity="0.6"/>
+                    </g>
+
+                    ${human(600, 250, 1.8, 'stand')}
+                `;
+            } else if (type === 'soldadura') {
+                svg = `
+                    <rect width="800" height="450" fill="#0f172a"/>
+                    <!-- Mesa de Trabajo -->
+                    <rect x="200" y="320" width="400" height="20" fill="#475569"/>
+                    <rect x="250" y="340" width="20" height="110" fill="#475569"/>
+                    <rect x="530" y="340" width="20" height="110" fill="#475569"/>
+
+                    <!-- Pieza Metálica -->
+                    <path d="M350 280 H450 V320 H350 Z" fill="#64748b" stroke="#94a3b8"/>
+
+                    <!-- Efecto Arco -->
+                    <circle cx="400" cy="280" r="80" fill="url(#glow)" opacity="0.5" class="svg-pulse"/>
+                    <circle cx="400" cy="280" r="10" fill="white"/>
+                    
+                    <!-- Chispas -->
+                    <g stroke="#fbbf24" stroke-width="2">
+                        <line x1="400" y1="280" x2="360" y2="240" class="svg-spark"/>
+                        <line x1="400" y1="280" x2="440" y2="220" class="svg-spark" style="animation-delay:0.1s"/>
+                        <line x1="400" y1="280" x2="420" y2="200" class="svg-spark" style="animation-delay:0.2s"/>
+                    </g>
+
+                    ${human(300, 270, 2, 'weld')}
+                `;
+            } else if (type === 'izaje') {
+                svg = `
+                    <rect width="800" height="450" fill="#f8fafc"/>
+                    <!-- Viga Puente Grúa -->
+                    <rect x="0" y="30" width="800" height="60" fill="${c.safetyYellow}" stroke="#b45309" stroke-width="2"/>
+                    <text x="50" y="70" font-weight="bold" font-size="30" fill="black" opacity="0.6">5 TON</text>
+                    
+                    <!-- Cable y Gancho -->
+                    <g transform="translate(400, 90)">
+                        <line x1="0" y1="0" x2="0" y2="120" stroke="#333" stroke-width="4"/>
+                        <!-- Carga: Motor Eléctrico -->
+                        <g class="svg-float">
+                            <rect x="-50" y="120" width="100" height="80" fill="${c.steel}" stroke="#333" stroke-width="2"/>
+                            <rect x="-60" y="140" width="10" height="40" fill="#333"/>
+                            <rect x="50" y="140" width="10" height="40" fill="#333"/>
+                            <rect x="-20" y="100" width="40" height="20" fill="#333"/> <!-- Caja Conexiones -->
+                        </g>
+                    </g>
+
+                    <!-- Zona Peligro Piso -->
+                    <ellipse cx="400" cy="400" rx="100" ry="20" fill="${c.safetyYellow}" opacity="0.3"/>
+                    
+                    ${human(200, 320, 1.8, 'stand')}
+                `;
+            } else if (type === 'derrames') {
+                svg = `
+                    <rect width="800" height="450" fill="#f1f5f9"/>
+                    <rect x="0" y="300" width="800" height="150" fill="#cbd5e1"/>
+                    
+                    <!-- Tambor Volcado -->
+                    <g transform="translate(350, 320) rotate(15)">
+                        <rect x="0" y="0" width="100" height="140" fill="${c.pipeBlue}" stroke="#1e3a8a" stroke-width="1" rx="5" transform="rotate(90)"/>
+                        <rect x="-80" y="30" width="40" height="40" fill="white" transform="rotate(45)"/>
+                        <path d="M-80 30 L-40 70" stroke="red" stroke-width="2"/> <!-- Cruz roja -->
+                    </g>
+
+                    <!-- Derrame -->
+                    <path d="M300 360 Q400 400 550 370 T650 360" fill="#16a34a" opacity="0.8"/>
+                    
+                    <!-- Vapores Tóxicos -->
+                    <g class="svg-float" opacity="0.5">
+                        <path d="M400 350 Q420 300 400 250" stroke="#16a34a" stroke-width="4" fill="none"/>
+                        <path d="M450 350 Q470 300 450 250" stroke="#16a34a" stroke-width="4" fill="none" style="animation-delay:0.5s"/>
+                    </g>
+
+                    ${human(150, 270, 1.8, 'stand')}
+                `;
+            }
+
+            return header + svg + footer;
+        }
+
+        // --- 3. NIVELES ---
+        const levels = [
+            // ... (Se mantienen igual que la versión anterior) ...
+            {
+                id: 1,
+                title: "Celdas de Flotación",
+                subtitle: "Área de Procesos",
+                desc: "Realizar muestreo manual de pulpa en celdas. Existe riesgo de salpicadura de reactivos y piso resbaladizo.",
+                svgType: 'flotacion',
+                required: ['casco', 'gafas', 'guantes', 'botas'],
+                consequences: {
+                    casco: "Golpe en cabeza.", gafas: "Salpicadura en ojos.", guantes: "Quemadura en manos.", botas: "Contacto en pies."
+                },
+                successMsg: "Muestreo realizado correctamente.",
+                failMsg: "Accidente por contacto químico."
+            },
+            {
+                id: 2,
+                title: "Área de Chancado",
+                subtitle: "Planta Primaria",
+                desc: "Inspección visual de chancadora. Ruido extremo (>90dB) y polvo en suspensión.",
+                svgType: 'chancado',
+                required: ['casco', 'auditivo', 'respirador', 'botas', 'gafas'],
+                consequences: {
+                    auditivo: "Daño por ruido.", respirador: "Inhalación de polvo.", gafas: "Partículas en ojos."
+                },
+                successMsg: "Protección efectiva contra agentes físicos.",
+                failMsg: "Exposición peligrosa."
+            },
+            {
+                id: 3,
+                title: "Trabajos en Altura",
+                subtitle: "Mantenimiento Estructural",
+                desc: "Ascenso por escalera vertical para cambio de luminaria a 6m.",
+                svgType: 'altura',
+                required: ['casco', 'arnes', 'botas', 'guantes'],
+                consequences: { arnes: "Caída de altura." },
+                successMsg: "Ascenso seguro con 3 puntos de apoyo.",
+                failMsg: "Caída a distinto nivel."
+            },
+            {
+                id: 4,
+                title: "Preparación Reactivos",
+                subtitle: "Tanques de Cianuro",
+                desc: "Manejo de Cianuro. Alta toxicidad.",
+                svgType: 'reactivos',
+                required: ['casco', 'gafas', 'respirador', 'guantes', 'botas'],
+                consequences: { respirador: "Intoxicación.", guantes: "Absorción dérmica." },
+                successMsg: "Procedimiento seguro.",
+                failMsg: "Intoxicación por reactivos."
+            },
+            {
+                id: 5,
+                title: "Soldadura y Corte",
+                subtitle: "Taller Mecánico",
+                desc: "Reparación de pieza. Chispas y radiación UV.",
+                svgType: 'soldadura',
+                required: ['casco', 'gafas', 'guantes', 'botas', 'chaleco'],
+                consequences: { gafas: "Daño ocular arco.", chaleco: "Quemaduras cuerpo." },
+                successMsg: "Trabajo en caliente seguro.",
+                failMsg: "Quemaduras reportadas."
+            },
+            {
+                id: 6,
+                title: "Izaje de Cargas",
+                subtitle: "Taller Mecánico",
+                desc: "Maniobra con puente grúa.",
+                svgType: 'izaje',
+                required: ['casco', 'gafas', 'guantes', 'botas', 'chaleco'],
+                consequences: { casco: "Golpe carga.", chaleco: "Falta visibilidad." },
+                successMsg: "Maniobra segura.",
+                failMsg: "Accidente de izaje."
+            },
+            {
+                id: 7,
+                title: "Control de Derrames",
+                subtitle: "Almacén de Químicos",
+                desc: "Contención de derrame químico tóxico.",
+                svgType: 'derrames',
+                required: ['casco', 'gafas', 'respirador', 'guantes', 'botas', 'kit'], 
+                consequences: {
+                    respirador: "Inhalación de vapores tóxicos.",
+                    guantes: "Contacto directo con sustancia.",
+                    botas: "Contaminación de calzado.",
+                    gafas: "Salpicadura a ojos.",
+                    kit: "Imposible contener el derrame sin el kit adecuado."
+                },
+                successMsg: "Derrame contenido seguramente.",
+                failMsg: "Contaminación del trabajador."
+            }
+        ];
+
+        // Estado
+        let currentLevelIndex = 0;
+        let selectedEPP = [];
+        let score = { safe: 0, fail: 0 };
+
+        function initGame() {
+            loadLevel(0);
+            lucide.createIcons();
+        }
+
+        // Renderiza el Grid de EPP filtrando el KIT solo para el nivel 7
+        function renderEPPGrid(levelIndex) {
+            const grid = document.getElementById('epp-grid');
+            grid.innerHTML = '';
+            
+            eppInventory.forEach(item => {
+                if (item.id === 'kit' && levelIndex !== 6) return;
+
+                const btn = document.createElement('div');
+                btn.className = 'epp-card bg-white p-2 rounded-xl shadow-sm cursor-pointer flex flex-col items-center justify-center gap-1 h-32 select-none relative group overflow-hidden';
+                btn.onclick = () => toggleEPP(item.id, btn);
+                btn.id = `btn-${item.id}`;
+                
+                if (selectedEPP.includes(item.id)) {
+                    btn.classList.add('selected');
+                }
+
+                btn.innerHTML = `
+                    <div class="absolute top-2 right-2 z-10 opacity-0 check-icon text-blue-600 transition-opacity duration-200 bg-white rounded-full shadow-sm ${selectedEPP.includes(item.id) ? 'opacity-100' : ''}">
+                        <i data-lucide="check-circle-2" class="w-6 h-6 fill-blue-100"></i>
+                    </div>
+                    <div class="w-20 h-20 flex items-center justify-center mb-1 relative">
+                        <i data-lucide="${item.icon || 'package'}" class="w-12 h-12 text-slate-400 absolute transition-opacity duration-300 opacity-0 fallback-icon"></i>
+                        <img src="${item.img}" alt="${item.name}" 
+                             class="max-w-full max-h-full object-contain mix-blend-multiply filter hover:brightness-110 transition-all duration-300"
+                             onerror="this.style.display='none'; this.parentElement.querySelector('.fallback-icon').classList.remove('opacity-0');">
+                    </div>
+                    <span class="text-xs font-bold text-slate-600 text-center leading-tight uppercase w-full bg-slate-50 py-1 rounded-b-lg">${item.name}</span>
+                `;
+                grid.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        function toggleEPP(id, element) {
+            const check = element.querySelector('.check-icon');
+            if (selectedEPP.includes(id)) {
+                selectedEPP = selectedEPP.filter(e => e !== id);
+                element.classList.remove('selected');
+                if (check) { check.classList.remove('opacity-100'); check.classList.add('opacity-0'); }
+            } else {
+                selectedEPP.push(id);
+                element.classList.add('selected');
+                if (check) { check.classList.remove('opacity-0'); check.classList.add('opacity-100'); }
+            }
+        }
+
+        function resetSelection() {
+            selectedEPP = [];
+            document.querySelectorAll('.epp-card').forEach(el => {
+                el.classList.remove('selected');
+                const check = el.querySelector('.check-icon');
+                if (check) { check.classList.remove('opacity-100'); check.classList.add('opacity-0'); }
+            });
+        }
+
+        function loadLevel(index) {
+            if (index >= levels.length) {
+                showFinalResults();
+                return;
+            }
+
+            const level = levels[index];
+            currentLevelIndex = index;
+            resetSelection();
+            
+            renderEPPGrid(index);
+
+            const container = document.querySelector('main');
+            container.classList.remove('fade-in');
+            void container.offsetWidth; 
+            container.classList.add('fade-in');
+
+            document.getElementById('scenario-title').innerText = level.title;
+            // UPDATE: ACTUALIZAR EL SUBTÍTULO
+            document.getElementById('scenario-subtitle').innerText = level.subtitle;
+            document.getElementById('level-indicator').innerText = `${index + 1} / ${levels.length}`;
+            document.getElementById('scenario-desc').innerText = level.desc;
+            
+            document.getElementById('svg-container').innerHTML = getScenarioSVG(level.svgType);
+        }
+
+        function checkAnswer() {
+            const level = levels[currentLevelIndex];
+            const missing = level.required.filter(req => !selectedEPP.includes(req));
+            const isSurvivor = missing.length === 0;
+            showResult(isSurvivor, level, missing);
+        }
+
+        function showResult(survived, level, missing) {
+            const modal = document.getElementById('result-modal');
+            const header = document.getElementById('modal-header');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-message');
+            const visual = document.getElementById('modal-visual');
+            const feedback = document.getElementById('modal-feedback');
+            const feedbackList = document.getElementById('modal-feedback-list');
+            const btn = modal.querySelector('button');
+
+            modal.classList.remove('hidden');
+            btn.onclick = nextLevel;
+            btn.innerText = "CONTINUAR";
+
+            if (survived) {
+                score.safe++;
+                document.getElementById('score-safe').innerText = score.safe;
+                header.className = 'p-6 pb-4 bg-emerald-50 border-b border-emerald-100 shrink-0';
+                title.innerText = "TAREA SEGURA";
+                title.className = "text-xl font-black text-emerald-600 uppercase tracking-tight";
+                msg.innerText = level.successMsg;
+                feedback.classList.add('hidden');
+                
+                visual.classList.remove('hidden');
+                visual.innerHTML = `<div class="h-full w-full flex items-center justify-center bg-emerald-50">
+                    <svg viewBox="0 0 100 100" class="w-20 h-20 text-emerald-500">
+                        <circle cx="50" cy="50" r="45" fill="currentColor" opacity="0.2"/>
+                        <path d="M30 50 L45 65 L70 35" stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>`;
+            } else {
+                score.fail++;
+                document.getElementById('score-fail').innerText = score.fail;
+                header.className = 'p-6 pb-4 bg-rose-50 border-b border-rose-100 shrink-0';
+                title.innerText = "ACCIDENTE";
+                title.className = "text-xl font-black text-rose-600 uppercase tracking-tight";
+                msg.innerText = level.failMsg;
+                
+                feedback.classList.remove('hidden');
+                feedbackList.innerHTML = '';
+                missing.forEach(id => {
+                    const itemName = eppInventory.find(e => e.id === id)?.name || id;
+                    const consequence = level.consequences[id] || "Falta de protección requerida.";
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span class="font-bold text-slate-800">${itemName}:</span> ${consequence}`;
+                    feedbackList.appendChild(li);
+                });
+                
+                visual.classList.add('hidden');
+                document.querySelector('.bg-white.rounded-2xl').classList.add('shake');
+                setTimeout(() => document.querySelector('.bg-white.rounded-2xl').classList.remove('shake'), 500);
+            }
+        }
+
+        function showFinalResults() {
+            const modal = document.getElementById('result-modal');
+            const header = document.getElementById('modal-header');
+            const title = document.getElementById('modal-title');
+            const msg = document.getElementById('modal-message');
+            const visual = document.getElementById('modal-visual');
+            const feedback = document.getElementById('modal-feedback');
+            const btn = modal.querySelector('button');
+
+            modal.classList.remove('hidden');
+            feedback.classList.add('hidden'); 
+            visual.classList.remove('hidden');
+
+            let finalTitle = "";
+            let finalColor = "";
+            
+            if (score.fail === 0) {
+                finalTitle = "¡EXCELENTE TRABAJO!";
+                finalColor = "emerald";
+                msg.innerHTML = `Demostraste una cultura de seguridad impecable.`;
+            } else {
+                finalTitle = "CAPACITACIÓN FINALIZADA";
+                finalColor = "slate";
+                msg.innerHTML = `Recuerda: La seguridad es responsabilidad de todos.`;
+            }
+
+            header.className = `p-6 pb-4 bg-${finalColor}-50 border-b border-${finalColor}-100 shrink-0`;
+            title.innerText = finalTitle;
+            title.className = `text-xl font-black text-${finalColor}-600 uppercase tracking-tight`;
+
+            visual.innerHTML = `
+                <div class="flex items-center justify-around h-full w-full px-4 bg-white">
+                    <div class="flex flex-col items-center">
+                        <span class="text-5xl font-black text-emerald-500">${score.safe}</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Vidas Salvadas</span>
+                    </div>
+                    <div class="h-12 w-px bg-slate-200"></div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-5xl font-black text-rose-500">${score.fail}</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Accidentes</span>
+                    </div>
+                </div>
+            `;
+
+            btn.onclick = restartGame;
+            btn.innerText = "REINICIAR";
+        }
+
+        function nextLevel() {
+            document.getElementById('result-modal').classList.add('hidden');
+            loadLevel(currentLevelIndex + 1);
+        }
+
+        function restartGame() {
+            score = { safe: 0, fail: 0 };
+            document.getElementById('score-safe').innerText = '0';
+            document.getElementById('score-fail').innerText = '0';
+            document.getElementById('result-modal').classList.add('hidden');
+            loadLevel(0);
+        }
+
+        initGame();
+
+    </script>
+</body>
+</html>
